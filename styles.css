@@ -75,6 +75,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 .conn[data-state="err"] .dot { background: var(--red); }
 
 /* ── Main ────────────────────────────────────────────────────────── */
+#bottom-nav { display: none; } /* shown only on mobile (see media query) */
 #main { flex: 1; margin-left: var(--sidebar-w); min-width: 0; padding-bottom: 20px; }
 #topbar {
   position: sticky; top: 0; z-index: 40;
