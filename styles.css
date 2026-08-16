@@ -52,9 +52,9 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 .brand { display: flex; gap: 10px; align-items: center; padding: 18px 16px; border-bottom: 1px solid rgba(255,255,255,.08); }
 .brand-logo {
   width: 38px; height: 38px; border-radius: 9px;
-  background: linear-gradient(135deg, var(--accent), #f59e6b);
-  color: #fff; font-weight: 800; font-size: 15px;
-  display: flex; align-items: center; justify-content: center;
+  background: #fff; padding: 4px;
+  object-fit: contain;
+  display: block; flex-shrink: 0;
 }
 .brand-name { font-weight: 700; font-size: 13px; letter-spacing: .06em; color: #fff; }
 .brand-sub { font-size: 11px; color: #a5b1b8; }
