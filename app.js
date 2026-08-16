@@ -316,7 +316,7 @@ function renderDashboard() {
         ['BALANCE', tzs(w.balance), statusBadge(w.status)]
       ] : [['WORKER', '—', 'No month row yet — go to Worker Payments']]).map(function (k) {
         return '<div class="card kpi"><div class="label">' + esc(k[0]) + '</div>' +
-          '<div class="value">' + esc(k[1]) + '</div><div class="sub">' + esc(k[2]) + '</div></div>';
+          '<div class="value">' + esc(k[1]) + '</div><div class="sub">' + k[2] + '</div></div>';
       }).join('') + '</div>' +
 
       '<h3 class="section-title">Sales &amp; profit</h3>' +
