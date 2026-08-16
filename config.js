@@ -10,6 +10,6 @@
 // property in Apps Script → Project Settings → Script Properties.
 // ══════════════════════════════════════════════════════════════════
 window.ROXTAM_CONFIG = {
-  apiUrl: "",      // e.g. "https://script.google.com/macros/s/XXXXXXXX/exec"
+  apiUrl: "https://script.google.com/macros/s/AKfycbxNyETCmGWKRWobVzwBAYHlzGT6JdxCHVBQVnVxeeTlSAFMKs6LCy4UG7-XBAc13CcA/exec",      // e.g. "https://script.google.com/macros/s/XXXXXXXX/exec"
   apiKey: ""       // optional shared secret
 };
