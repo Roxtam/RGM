@@ -1120,9 +1120,11 @@ function renderReceipt() { renderDoc('receipt'); }
 function docHTML(kind, o, settings) {
   if (!o) return empty('Order not found.');
   const b = settings.business;
-  const head = '<div class="doc-head"><div><div class="doc-title">' + esc(b.name || 'ROXTAM GRAPHIX') + '</div>' +
+  const head = '<div class="doc-head"><div style="display:flex;gap:12px;align-items:center">' +
+    '<img src="logo.png" alt="logo" style="width:54px;height:54px;background:#fff;border-radius:10px;padding:4px;object-fit:contain">' +
+    '<div><div class="doc-title">' + esc(b.name || 'ROXTAM GRAPHIX') + '</div>' +
     '<div class="muted" style="font-size:12px">' + esc(b.address || '') + '</div>' +
-    '<div class="muted" style="font-size:12px">' + esc(b.phone || '') + (b.email ? ' · ' + esc(b.email) : '') + '</div></div>' +
+    '<div class="muted" style="font-size:12px">' + esc(b.phone || '') + (b.email ? ' · ' + esc(b.email) : '') + '</div></div></div>' +
     '<div class="doc-meta">' + (kind === 'invoice' ? 'INVOICE' : 'PAYMENT RECEIPT') + '<br><b>' + esc(o.id) + '</b><br>' + fmtDate(new Date()) + '</div></div>';
   const customer = '<table><tr><th colspan="2">' + (kind === 'invoice' ? 'BILL TO' : 'RECEIVED FROM') + '</th></tr>' +
     '<tr><td>Customer</td><td>' + esc(o.customer) + '</td></tr>' +
