@@ -170,6 +170,10 @@ function buildNav() {
   nav.innerHTML = NAV.map(function (n) {
     return '<a href="#/' + n.id + '" data-page="' + n.id + '">' + n.icon + '<span>' + esc(n.label) + '</span></a>';
   }).join('');
+  nav.querySelectorAll('a').forEach(function (a) {
+    a.onclick = function (e) { e.preventDefault(); navigate(a.dataset.page); };
+  });
+
   const bottom = document.getElementById('bottom-nav');
   const tabs = [
     { id: 'dashboard', label: 'Home' },
@@ -180,6 +184,9 @@ function buildNav() {
     return '<button data-page="' + t.id + '">' + ICONS[t.id] + '<span>' + t.label + '</span></button>';
   }).join('') + '<button id="fab-add" class="fab" aria-label="New order">＋</button>' +
     '<button id="more-btn">' + ICONS.settings + '<span>More</span></button>';
+  bottom.querySelectorAll('button[data-page]').forEach(function (b) {
+    b.onclick = function () { navigate(b.dataset.page); };
+  });
 }
 
 function navigate(page) {
