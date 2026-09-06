@@ -369,7 +369,7 @@ function renderOrders() {
     if (st.q) {
       const q = st.q.toLowerCase();
       list = list.filter(function (o) {
-        return [o.id, o.customer, o.phone, o.email, o.service, o.description].join(' ').toLowerCase().indexOf(q) !== -1;
+        return [o.id, o.customer, o.phone, o.email, orderServiceText(o), o.description].join(' ').toLowerCase().indexOf(q) !== -1;
       });
     }
     if (st.status) list = list.filter(function (o) { return o.orderStatus === st.status; });
@@ -432,7 +432,7 @@ function refreshOrdersList() {
     if (st.q) {
       const q = st.q.toLowerCase();
       list = list.filter(function (o) {
-        return [o.id, o.customer, o.phone, o.email, o.service, o.description].join(' ').toLowerCase().indexOf(q) !== -1;
+        return [o.id, o.customer, o.phone, o.email, orderServiceText(o), o.description].join(' ').toLowerCase().indexOf(q) !== -1;
       });
     }
     if (st.status) list = list.filter(function (o) { return o.orderStatus === st.status; });
@@ -454,13 +454,25 @@ function refreshOrdersList() {
   });
 }
 
+function serviceLabel(o) {
+  if (o.items && o.items.length > 1) {
+    const names = o.items.map(function (it) { return it.service; }).join(' · ');
+    return esc(o.items[0].service) + ' <span class="muted" style="font-size:11px" title="' + esc(names) + '">+' + (o.items.length - 1) + ' more</span>';
+  }
+  return esc(o.service);
+}
+
+function orderServiceText(o) {
+  return [(o.items || []).map(function (it) { return it.service; }).join(' '), o.service].join(' ');
+}
+
 function ordersTable(list) {
   if (!list.length) return empty('No orders match.');
   const rows = list.map(function (o) {
     return '<tr data-row="' + o.row + '">' +
       '<td><b>' + esc(o.id) + '</b><div class="muted" style="font-size:11px">' + fmtDate(o.date) + '</div></td>' +
       '<td>' + esc(o.customer) + '</td>' +
-      '<td>' + esc(o.service) + '</td>' +
+      '<td>' + serviceLabel(o) + '</td>' +
       '<td class="num">' + tzs(o.total) + '</td>' +
       '<td class="num">' + tzs(o.paid) + '</td>' +
       '<td class="num">' + tzs(o.balance) + '</td>' +
@@ -498,11 +510,35 @@ function shareRateOptions(settings, current) {
   }).join('');
 }
 
+function orderItemsHTML(settings, items) {
+  const svcs = settings.lists.services;
+  const svcOptions = function (sel) {
+    return '<option value="">— Select —</option>' + svcs.map(function (x) {
+      return '<option value="' + esc(x) + '"' + (sel === x ? ' selected' : '') + '>' + esc(x) + '</option>';
+    }).join('');
+  };
+  const rows = (items && items.length ? items : [{}]).map(function (it) {
+    it = it || {};
+    return '<div class="oi-item">' +
+      '<select class="oi-service" aria-label="Service">' + svcOptions(it.service) + '</select>' +
+      '<input class="oi-desc" placeholder="Description" value="' + esc(it.description || '') + '">' +
+      '<input class="oi-qty" type="number" min="1" step="1" placeholder="Qty" value="' + (it.qty || 1) + '">' +
+      '<input class="oi-price" type="number" min="0" step="any" placeholder="Unit price (TZS)" value="' + (it.unitPrice || '') + '">' +
+      '<button class="btn btn-sm btn-danger oi-del" type="button" title="Remove service">✕</button>' +
+      '</div>';
+  }).join('');
+  return '<div class="field full"><label>Services <span class="req">*</span></label>' +
+    '<div id="oi-list">' + rows + '</div>' +
+    '<button class="btn btn-sm" id="oi-add" type="button">+ Add Service</button>' +
+    '<p class="muted" style="font-size:11px;margin-top:6px">Add every service this customer ordered — each with its own price. The invoice lists them all.</p></div>';
+}
+
 function orderFormHTML(settings, o) {
   o = o || {};
   const customers = settings.customers || [];
-  const svcs = settings.lists.services;
   const statuses = settings.lists.orderStatuses;
+  const items = (o.items && o.items.length) ? o.items
+    : [{ service: o.service, description: o.description, qty: o.qty, unitPrice: o.unitPrice }];
   return '<div class="form-grid">' +
     '<div class="field"><label>Customer Name <span class="req">*</span></label>' +
     '<input id="of-customer" list="customer-list" value="' + esc(o.customer || '') + '" placeholder="Type or pick existing…">' +
@@ -510,12 +546,7 @@ function orderFormHTML(settings, o) {
     '<div class="field"><label>Phone</label><input id="of-phone" value="' + esc(o.phone || '') + '"></div>' +
     '<div class="field"><label>Email</label><input id="of-email" type="email" value="' + esc(o.email || '') + '"></div>' +
     '<div class="field"><label>Date</label><input id="of-date" type="date" value="' + dateInput(o.date || new Date()) + '"></div>' +
-    '<div class="field"><label>Service <span class="req">*</span></label>' +
-    '<select id="of-service"><option value="">— Select —</option>' +
-    svcs.map(function (x) { return '<option value="' + esc(x) + '"' + (o.service === x ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select></div>' +
-    '<div class="field"><label>Description</label><input id="of-desc" value="' + esc(o.description || '') + '"></div>' +
-    '<div class="field"><label>Quantity <span class="req">*</span></label><input id="of-qty" type="number" min="1" step="1" value="' + (o.qty || 1) + '"></div>' +
-    '<div class="field"><label>Unit Price (TZS) <span class="req">*</span></label><input id="of-price" type="number" min="0" step="any" value="' + (o.unitPrice || '') + '"></div>' +
+    orderItemsHTML(settings, items) +
     '<div class="field"><label>Discount (TZS)</label><input id="of-disc" type="number" min="0" step="any" value="' + (o.discount || 0) + '"></div>' +
     '<div class="field"><label>Amount Paid (TZS)</label><input id="of-paid" type="number" min="0" step="any" value="' + (o.paid || 0) + '"></div>' +
     '<div class="field"><label>Order Status</label><select id="of-status">' +
@@ -538,16 +569,18 @@ function orderFormHTML(settings, o) {
 }
 
 function bindOrderCalc(settings) {
-  const read = function (id) { return document.getElementById(id).value; };
   const calc = function () {
-    const qty = Number(read('of-qty')) || 0;
-    const price = Number(read('of-price')) || 0;
-    const disc = Number(read('of-disc')) || 0;
-    const paid = Number(read('of-paid')) || 0;
-    const sub = qty * price;
+    let sub = 0;
+    document.querySelectorAll('#oi-list .oi-item').forEach(function (el) {
+      const qty = Number(el.querySelector('.oi-qty').value) || 0;
+      const price = Number(el.querySelector('.oi-price').value) || 0;
+      sub += qty * price;
+    });
+    const disc = Number(document.getElementById('of-disc').value) || 0;
+    const paid = Number(document.getElementById('of-paid').value) || 0;
     const total = Math.max(0, sub - disc);
     const bal = Math.max(0, total - paid);
-    const rateLabel = read('of-rate');
+    const rateLabel = document.getElementById('of-rate').value;
     const st = settings.lists.shareTypes.filter(function (x) { return x.label === rateLabel; });
     const share = Math.round(total * (st.length ? st[0].rate : 0));
     document.getElementById('calc-sub').textContent = tzs(sub);
@@ -555,10 +588,60 @@ function bindOrderCalc(settings) {
     document.getElementById('calc-bal').textContent = tzs(bal);
     document.getElementById('calc-share').textContent = tzs(share);
   };
-  ['of-qty', 'of-price', 'of-disc', 'of-paid', 'of-rate'].forEach(function (id) {
+  document.getElementById('oi-list').addEventListener('input', calc);
+  ['of-disc', 'of-paid', 'of-rate'].forEach(function (id) {
     document.getElementById(id).oninput = calc;
   });
   calc();
+}
+
+function bindItemsEditor(settings) {
+  const list = document.getElementById('oi-list');
+  if (!list) return;
+  const mkRow = function (it) {
+    it = it || {};
+    const svcOptions = '<option value="">— Select —</option>' + settings.lists.services.map(function (x) {
+      return '<option value="' + esc(x) + '"' + (it.service === x ? ' selected' : '') + '>' + esc(x) + '</option>';
+    }).join('');
+    const div = document.createElement('div');
+    div.className = 'oi-item';
+    div.innerHTML =
+      '<select class="oi-service" aria-label="Service">' + svcOptions + '</select>' +
+      '<input class="oi-desc" placeholder="Description" value="' + esc(it.description || '') + '">' +
+      '<input class="oi-qty" type="number" min="1" step="1" placeholder="Qty" value="' + (it.qty || 1) + '">' +
+      '<input class="oi-price" type="number" min="0" step="any" placeholder="Unit price (TZS)" value="' + (it.unitPrice || '') + '">' +
+      '<button class="btn btn-sm btn-danger oi-del" type="button" title="Remove service">✕</button>';
+    return div;
+  };
+  document.getElementById('oi-add').onclick = function () {
+    list.appendChild(mkRow({ qty: 1 }));
+    const el = list.lastElementChild;
+    el.querySelector('.oi-del').onclick = function () {
+      el.remove();
+      document.getElementById('oi-list').dispatchEvent(new Event('input'));
+    };
+  };
+  list.querySelectorAll('.oi-item').forEach(function (el) {
+    el.querySelector('.oi-del').onclick = function () {
+      if (list.querySelectorAll('.oi-item').length > 1) {
+        el.remove();
+        document.getElementById('oi-list').dispatchEvent(new Event('input'));
+      }
+    };
+  });
+}
+
+function collectItems() {
+  const items = [];
+  document.querySelectorAll('#oi-list .oi-item').forEach(function (el) {
+    const service = el.querySelector('.oi-service').value.trim();
+    const description = el.querySelector('.oi-desc').value.trim();
+    const qty = Number(el.querySelector('.oi-qty').value) || 0;
+    const unitPrice = Number(el.querySelector('.oi-price').value) || 0;
+    if (!service && !description && !qty && !unitPrice) return;
+    items.push({ service: service, description: description, qty: qty, unitPrice: unitPrice });
+  });
+  return items;
 }
 
 function openOrderForm(row) {
@@ -571,18 +654,32 @@ function openOrderForm(row) {
       openModal(order ? 'Edit Order ' + order.id : 'New Order', orderFormHTML(settings, order), true);
       document.getElementById('of-cancel').onclick = closeModal;
       bindOrderCalc(settings);
+      bindItemsEditor(settings);
       document.getElementById('of-save').onclick = function () {
         const errBox = document.getElementById('form-err');
+        const items = collectItems();
+        if (!items.length || !items[0].service) {
+          errBox.innerHTML = errorBox('Add at least one service to save the order.');
+          return;
+        }
+        for (let i = 0; i < items.length; i++) {
+          if (!items[i].service) { errBox.innerHTML = errorBox('Every service row needs a service name (or remove the row).'); return; }
+          if (items[i].qty <= 0) { errBox.innerHTML = errorBox('Quantity must be at least 1 for «' + esc(items[i].service) + '».'); return; }
+          if (items[i].unitPrice < 0) { errBox.innerHTML = errorBox('Unit Price cannot be negative for «' + esc(items[i].service) + '».'); return; }
+        }
+        // items = the full multi-service list; the single service/qty/price
+        // fields mirror the first item for older backends.
         const payload = {
           row: order ? order.row : undefined,
           customer: document.getElementById('of-customer').value,
           phone: document.getElementById('of-phone').value,
           email: document.getElementById('of-email').value,
           date: document.getElementById('of-date').value,
-          service: document.getElementById('of-service').value,
-          description: document.getElementById('of-desc').value,
-          qty: document.getElementById('of-qty').value,
-          unitPrice: document.getElementById('of-price').value,
+          service: items[0].service,
+          description: items[0].description,
+          qty: items[0].qty,
+          unitPrice: items[0].unitPrice,
+          items: items,
           discount: document.getElementById('of-disc').value,
           paid: document.getElementById('of-paid').value,
           orderStatus: document.getElementById('of-status').value,
@@ -629,7 +726,13 @@ function showOrderDetail(row) {
       '<div class="grid cols-2" style="grid-template-columns:1fr 1fr">' +
       '<div><h4>Order</h4><p class="muted">' + fmtDate(o.date) + '<br>' + statusBadge(o.orderStatus) + ' ' + statusBadge(o.payStatus) + '</p></div>' +
       '<div><h4>Customer</h4><p class="muted">' + esc(o.customer) + '<br>' + esc(o.phone) + '<br>' + esc(o.email) + '</p></div>' +
-      '<div><h4>Service</h4><p class="muted">' + esc(o.service) + '<br>' + esc(o.description) + '<br>Qty ' + o.qty + ' × ' + tzs(o.unitPrice) + '<br>Discount ' + tzs(o.discount) + '</p></div>' +
+      '<div><h4>' + ((o.items && o.items.length > 1) ? 'Services' : 'Service') + '</h4><p class="muted">' +
+        ((o.items && o.items.length > 1)
+          ? '<table class="tbl" style="font-size:12px">' + o.items.map(function (it) {
+              return '<tr><td>' + esc(it.service) + (it.description ? '<div class="muted">' + esc(it.description) + '</div>' : '') + '</td><td class="num">' + it.qty + ' × ' + tzs(it.unitPrice) + '</td></tr>';
+            }).join('') + '</table>'
+          : esc(o.service) + '<br>' + esc(o.description) + '<br>Qty ' + o.qty + ' × ' + tzs(o.unitPrice)) +
+        '<br>Discount ' + tzs(o.discount) + '</p></div>' +
       '<div><h4>Financial</h4><p class="muted">Total <b>' + tzs(o.total) + '</b><br>Paid ' + tzs(o.paid) + '<br>Balance ' + tzs(o.balance) + '<br>Direct exp ' + tzs(o.directExpense) + ' · Commission ' + tzs(o.commission) + '<br>Eligible profit ' + tzs(o.profit) + '</p></div>' +
       '<div><h4>Worker</h4><p class="muted">Julieth Johnson<br>Rate: ' + esc(o.shareRate) + '<br>Share: <b>' + tzs(o.workerShare) + '</b></p></div>' +
       '<div><h4>Notes</h4><p class="muted">' + esc(o.notes || '—') + '</p></div>' +
@@ -662,15 +765,18 @@ function deleteOrderFlow(row) {
 function printOrder(o) {
   const w = window.open('', '_blank');
   if (!w) { toast('Please allow pop-ups to print.', 'err'); return; }
+  const itemsRows = orderItemsList(o).map(function (it) {
+    return '<tr><td>' + esc(it.service) + '</td><td>' + esc(it.description) + '</td><td>' + it.qty + '</td>' +
+      '<td>' + tzs(it.unitPrice) + '</td><td>' + tzs(it.qty * it.unitPrice) + '</td></tr>';
+  }).join('');
   w.document.write(
     '<html><head><title>Order ' + esc(o.id) + '</title>' +
     '<style>body{font-family:Arial,sans-serif;padding:24px;font-size:13px} table{width:100%;border-collapse:collapse;margin:12px 0} td,th{border:1px solid #ccc;padding:6px 9px;text-align:left} h2{margin:0} .muted{color:#666}</style></head><body>' +
     '<h2>ROXTAM GRAPHIX — Order ' + esc(o.id) + '</h2>' +
     '<p class="muted">' + fmtDate(o.date) + ' · ' + esc(o.orderStatus) + ' · ' + esc(o.payStatus) + '</p>' +
-    '<table><tr><th>Customer</th><td>' + esc(o.customer) + ' · ' + esc(o.phone) + ' · ' + esc(o.email) + '</td></tr>' +
-    '<tr><th>Service</th><td>' + esc(o.service) + ' — ' + esc(o.description) + '</td></tr>' +
-    '<tr><th>Quantity</th><td>' + o.qty + ' × ' + tzs(o.unitPrice) + '</td></tr>' +
-    '<tr><th>Total</th><td>' + tzs(o.total) + '</td></tr>' +
+    '<table><tr><th>Customer</th><td>' + esc(o.customer) + ' · ' + esc(o.phone) + ' · ' + esc(o.email) + '</td></tr></table>' +
+    '<table><tr><th>Service</th><th>Description</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr>' + itemsRows + '</table>' +
+    '<table><tr><th>Total</th><td>' + tzs(o.total) + '</td></tr>' +
     '<tr><th>Paid</th><td>' + tzs(o.paid) + '</td></tr>' +
     '<tr><th>Balance</th><td>' + tzs(o.balance) + '</td></tr>' +
     '<tr><th>Worker Share</th><td>' + esc(o.shareRate) + ' → ' + tzs(o.workerShare) + '</td></tr></table>' +
@@ -730,7 +836,8 @@ function renderAttendance() {
       const isToday = key === todayKey;
       cells += '<div class="att-day' + (yes ? ' yes' : '') + (isToday ? ' today' : '') + '" data-key="' + key + '">' +
         '<div class="d">' + ['Su','Mo','Tu','We','Th','Fr','Sa'][new Date(year, month, d).getDay()] + '</div>' +
-        '<div class="n">' + d + '</div>' + (yes ? '<div style="font-size:10px;color:#008060;font-weight:700">✓</div>' : '<div style="font-size:10px;color:transparent">·</div>') +
+        '<div class="n">' + d + '</div>' +
+        '<div class="mark" style="color:' + (yes ? '#008060' : 'transparent') + '">' + (yes ? '✓' : '·') + '</div>' +
         '</div>';
     }
     const reported = rows.filter(function (r) { return r.present && r.dateKey.indexOf(mk) === 0; }).length;
@@ -759,21 +866,21 @@ function renderAttendance() {
         el.onclick = function () {
           const key = el.dataset.key;
           const currently = el.classList.contains('yes');
-          el.classList.toggle('yes');
-          el.querySelector('.n');
-          el.innerHTML = el.innerHTML.replace(/✓|·/, '');
-          const lbl = document.createElement('div');
-          lbl.style.cssText = 'font-size:10px;font-weight:700;color:#008060';
-          lbl.textContent = currently ? '·' : '✓';
-          if (!currently) { lbl.style.color = '#008060'; } else { lbl.style.cssText = 'font-size:10px;color:transparent'; }
-          el.appendChild(lbl);
-          api('setAttendance', { date: key, present: !currently }, { noCache: true }).then(function () {
+          const newState = !currently;
+          // optimistic update
+          el.classList.toggle('yes', newState);
+          const mark = el.querySelector('.mark');
+          if (mark) {
+            mark.textContent = newState ? '✓' : '·';
+            mark.style.color = newState ? '#008060' : 'transparent';
+          }
+          api('setAttendance', { date: key, present: newState }, { noCache: true }).then(function () {
             invalidate('getAttendance'); invalidate('getWorkerPayments'); invalidate('getDashboard');
-            const days = reported + (currently ? -1 : 1);
-            document.getElementById('att-sum').textContent = days + ' days · ' + tzs(Math.max(0, days) * fee);
+            const days = view.querySelectorAll('.att-day.yes').length;
+            document.getElementById('att-sum').textContent = days + ' days · ' + tzs(days * fee);
           }).catch(function (err) {
             toast('Could not update attendance: ' + err.message, 'err');
-            el.classList.toggle('yes');
+            el.classList.toggle('yes', currently);
             renderAttendance();
           });
         };
@@ -1109,6 +1216,9 @@ function renderDoc(kind) {
       if (kind === 'invoice') pageState.invoice.id = this.value; else pageState.receipt.id = this.value;
       renderDoc(kind);
     };
+    const selected = orders.filter(function (x) { return x.id === (kind === 'invoice' ? pageState.invoice.id : pageState.receipt.id); })[0];
+    const exportBtn = document.getElementById('doc-export');
+    if (exportBtn && selected) exportBtn.onclick = function () { exportDoc(kind, selected, settings); };
     const printBtn = document.getElementById('doc-print');
     if (printBtn) printBtn.onclick = function () { window.print(); };
   }).catch(function (err) { view.innerHTML = errorBox(err.message); });
@@ -1116,6 +1226,39 @@ function renderDoc(kind) {
 
 function renderInvoice() { renderDoc('invoice'); }
 function renderReceipt() { renderDoc('receipt'); }
+
+/* ── Shared document helpers ─────────────────────────────────────── */
+const M_PESA_PAYMENT = '352295951 M-Pesa Lipa Jina: Roxtam Graphix';
+
+function orderItemsList(o) {
+  if (o.items && o.items.length) return o.items;
+  return [{ service: o.service, description: o.description, qty: o.qty, unitPrice: o.unitPrice }];
+}
+
+function orderSubtotal(o) {
+  return orderItemsList(o).reduce(function (s, it) { return s + (Number(it.qty) || 0) * (Number(it.unitPrice) || 0); }, 0);
+}
+
+function paymentMethodList(settings) {
+  const list = (settings.lists && settings.lists.paymentMethods ? settings.lists.paymentMethods : []).slice();
+  if (list.indexOf(M_PESA_PAYMENT) === -1) list.unshift(M_PESA_PAYMENT);
+  return list;
+}
+
+function paymentMethodsBlock(settings, cssClass) {
+  return '<div class="' + cssClass + '"><div class="doc-pay-title">PAYMENT METHODS</div>' +
+    paymentMethodList(settings).map(function (m) {
+      return '<div class="doc-pay-item">' + esc(m) + '</div>';
+    }).join('') + '</div>';
+}
+
+function itemsTableHTML(o) {
+  return '<table><tr><th>Service</th><th>Description</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr>' +
+    orderItemsList(o).map(function (it) {
+      return '<tr><td>' + esc(it.service) + '</td><td>' + esc(it.description) + '</td><td>' + it.qty + '</td>' +
+        '<td>' + tzs(it.unitPrice) + '</td><td>' + tzs(it.qty * it.unitPrice) + '</td></tr>';
+    }).join('') + '</table>';
+}
 
 function docHTML(kind, o, settings) {
   if (!o) return empty('Order not found.');
@@ -1135,24 +1278,92 @@ function docHTML(kind, o, settings) {
     '<tr><td>Payment Status</td><td>' + esc(o.payStatus) + '</td></tr></table>';
   let body = '';
   if (kind === 'invoice') {
-    body = '<table><tr><th>Service</th><th>Description</th><th>Qty</th><th>Unit Price</th><th>Discount</th><th>Total</th></tr>' +
-      '<tr><td>' + esc(o.service) + '</td><td>' + esc(o.description) + '</td><td>' + o.qty + '</td>' +
-      '<td>' + tzs(o.unitPrice) + '</td><td>' + tzs(o.discount) + '</td><td><b>' + tzs(o.total) + '</b></td></tr></table>' +
-      '<div class="totals"><span>Subtotal: ' + tzs(o.qty * o.unitPrice) + '</span>' +
+    body = itemsTableHTML(o) +
+      '<div class="totals"><span>Subtotal: ' + tzs(orderSubtotal(o)) + '</span>' +
       '<span>Discount: ' + tzs(o.discount) + '</span>' +
       '<span class="grand">GRAND TOTAL: ' + tzs(o.total) + '</span>' +
       '<span>Amount Paid: ' + tzs(o.paid) + '</span>' +
       '<span>Balance Due: ' + tzs(o.balance) + '</span></div>';
   } else {
-    body = '<table><tr><th>Order Total</th><td>' + tzs(o.total) + '</td></tr>' +
+    body = itemsTableHTML(o) +
+      '<table><tr><th>Order Total</th><td>' + tzs(o.total) + '</td></tr>' +
       '<tr><th>Amount Paid</th><td>' + tzs(o.paid) + '</td></tr>' +
       '<tr><th>Payment Method</th><td>_______________</td></tr>' +
       '<tr><th>Remaining Balance</th><td>' + tzs(o.balance) + '</td></tr></table>' +
       '<p style="margin-top:26px">Received by: _________________________ &nbsp;&nbsp;&nbsp; Signature: _________________</p>';
   }
   return '<div class="doc">' + head + customer + body +
+    paymentMethodsBlock(settings, 'doc-pay') +
     '<div class="foot">Thank you for choosing ' + esc(b.name || 'Roxtam Graphix') + '! — ' + esc(b.phone || '') + '</div></div>' +
-    '<div class="doc-actions"><button class="btn btn-primary" id="doc-print">🖨 Print ' + (kind === 'invoice' ? 'Invoice' : 'Receipt') + '</button></div>';
+    '<div class="doc-actions"><button class="btn btn-primary" id="doc-export">⬇ Export PDF</button>' +
+    '<button class="btn" id="doc-print">🖨 Print page</button></div>' +
+    '<p class="muted" style="text-align:center;font-size:11px;margin-top:6px">Export PDF opens a clean print window — the exported document contains no website link.</p>';
+}
+
+/* Standalone document for the export window. It is written into a blank
+   popup (about:blank), so the browser prints no page URL in the header —
+   the exported invoice/receipt never shows the app link. */
+function docStandaloneHTML(kind, o, settings) {
+  const b = settings.business;
+  const title = kind === 'invoice' ? 'INVOICE' : 'PAYMENT RECEIPT';
+  const css = 'body{font-family:Arial,Helvetica,sans-serif;color:#2d3436;margin:26px;font-size:13px}' +
+    '.head{display:flex;justify-content:space-between;gap:12px;border-bottom:3px solid #E17055;padding-bottom:12px;margin-bottom:14px}' +
+    '.h-name{font-size:20px;font-weight:800;letter-spacing:.04em}' +
+    '.h-sub{font-size:11px;color:#555;margin-top:2px}' +
+    '.meta{text-align:right;font-size:11px;color:#555}' +
+    'table{width:100%;border-collapse:collapse;margin:10px 0}' +
+    'td,th{border:1px solid #c9ced4;padding:7px 9px;text-align:left}' +
+    'th{background:#f4f6f8;font-size:10px;text-transform:uppercase}' +
+    '.totals{float:right;font-size:12.5px;margin-top:2px}' +
+    '.totals div{padding:2px 0;text-align:right}' +
+    '.grand{font-size:15px;font-weight:800;border-top:2px solid #2d3436;margin-top:4px;padding-top:5px}' +
+    '.pay{clear:both;margin-top:26px;border:1px solid #c9ced4;border-radius:7px;padding:9px 13px;background:#f4f6f8;font-size:12px;page-break-inside:avoid}' +
+    '.pay-title{font-weight:800;font-size:10px;letter-spacing:.06em;color:#555;margin-bottom:5px}' +
+    '.pay-item{padding:3px 0;border-bottom:1px dashed #c9ced4}' +
+    '.pay-item:last-child{border:none}' +
+    '.foot{margin-top:26px;text-align:center;font-size:11px;color:#666;border-top:1px solid #c9ced4;padding-top:10px}';
+  const body = kind === 'invoice'
+    ? '<table><tr><th>Service</th><th>Description</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr>' +
+      orderItemsList(o).map(function (it) {
+        return '<tr><td>' + esc(it.service) + '</td><td>' + esc(it.description) + '</td><td>' + it.qty + '</td>' +
+          '<td>' + tzs(it.unitPrice) + '</td><td>' + tzs(it.qty * it.unitPrice) + '</td></tr>';
+      }).join('') + '</table>' +
+      '<div class="totals"><div>Subtotal: ' + tzs(orderSubtotal(o)) + '</div>' +
+      '<div>Discount: ' + tzs(o.discount) + '</div>' +
+      '<div class="grand">GRAND TOTAL: ' + tzs(o.total) + '</div>' +
+      '<div>Amount Paid: ' + tzs(o.paid) + '</div>' +
+      '<div>Balance Due: ' + tzs(o.balance) + '</div></div>'
+    : '<table><tr><th>Order Total</th><td>' + tzs(o.total) + '</td></tr>' +
+      '<tr><th>Amount Paid</th><td>' + tzs(o.paid) + '</td></tr>' +
+      '<tr><th>Payment Method</th><td>_______________</td></tr>' +
+      '<tr><th>Remaining Balance</th><td>' + tzs(o.balance) + '</td></tr></table>' +
+      '<p style="margin-top:24px">Received by: _________________________ &nbsp;&nbsp;&nbsp; Signature: _________________</p>';
+  const pay = '<div class="pay"><div class="pay-title">PAYMENT METHODS</div>' +
+    paymentMethodList(settings).map(function (m) {
+      return '<div class="pay-item">' + esc(m) + '</div>';
+    }).join('') + '</div>';
+  return '<html><head><title>Roxtam Graphix — ' + title + ' ' + esc(o.id) + '</title><style>' + css + '</style></head><body>' +
+    '<div class="head"><div><div class="h-name">' + esc(b.name || 'ROXTAM GRAPHIX') + '</div>' +
+    '<div class="h-sub">' + esc(b.address || '') + '</div>' +
+    '<div class="h-sub">' + esc(b.phone || '') + (b.email ? ' · ' + esc(b.email) : '') + '</div></div>' +
+    '<div class="meta">' + title + '<br><b>' + esc(o.id) + '</b><br>' + fmtDate(new Date()) + '</div></div>' +
+    '<table><tr><th colspan="2">' + (kind === 'invoice' ? 'BILL TO' : 'RECEIVED FROM') + '</th></tr>' +
+    '<tr><td>Customer</td><td>' + esc(o.customer) + '</td></tr>' +
+    '<tr><td>Phone</td><td>' + esc(o.phone) + '</td></tr>' +
+    '<tr><td>Email</td><td>' + esc(o.email) + '</td></tr>' +
+    '<tr><td>Order ID</td><td>' + esc(o.id) + '</td></tr>' +
+    '<tr><td>Date</td><td>' + fmtDate(o.date) + '</td></tr>' +
+    '<tr><td>Payment Status</td><td>' + esc(o.payStatus) + '</td></tr></table>' +
+    body + pay +
+    '<div class="foot">Thank you for choosing ' + esc(b.name || 'Roxtam Graphix') + '! — ' + esc(b.phone || '') + '</div>' +
+    '<script>window.onload=function(){window.print()}<\/script></body></html>';
+}
+
+function exportDoc(kind, o, settings) {
+  const w = window.open('', '_blank');
+  if (!w) { toast('Please allow pop-ups to export the ' + kind + '.', 'err'); return; }
+  w.document.write(docStandaloneHTML(kind, o, settings));
+  w.document.close();
 }
 
 /* ── Settings ─────────────────────────────────────────────────────── */
